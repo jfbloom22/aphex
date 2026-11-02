@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1
+#
+# Lab Notes eval runtime for apps/studio (ADAPTER=node).
+# Pre-built bundle: run apps/studio/scripts/lab-notes/podman-runtime.sh (pnpm deploy staging)
+# before `podman build -f Dockerfile.lab-notes-studio`.
+#
+# Full monorepo image build is intentionally not used here — staging carries
+# `apps/studio/build` plus production node_modules from `pnpm deploy --legacy`.
+
+FROM node:22-alpine AS sharpfix
+RUN apk add --no-cache npm \
+	&& mkdir /work && cd /work \
+	&& npm init -y >/dev/null \
+	&& npm install sharp@0.35.3 @libsql/linux-arm64-musl --os=linux --libc=musl --cpu=arm64
+
+FROM node:22-alpine AS runner
+
+RUN apk add --no-cache su-exec
+
+RUN addgroup -g 10001 aphex \
+	&& adduser -D -u 10001 -G aphex aphex
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
+COPY apps/studio/.aphex/lab-notes-podman/staging/build ./build
+COPY apps/studio/.aphex/lab-notes-podman/staging/node_modules ./node_modules
+COPY apps/studio/.aphex/lab-notes-podman/staging/package.json ./package.json
+COPY apps/studio/scripts/lab-notes/docker-entrypoint.sh /app/docker-entrypoint.sh
+
+RUN chmod +x /app/docker-entrypoint.sh \
+	&& chown -R aphex:aphex /app
+
+COPY --from=sharpfix /work/node_modules/@img /tmp/sharp-img-musl
+COPY --from=sharpfix /work/node_modules/@libsql /tmp/libsql-musl
+
+# pnpm deploy on macOS ships darwin native bindings; graft linuxmusl prebuilds from sharpfix.
+USER root
+RUN PNPM_SHARP_MODS="$(find /app/node_modules/.pnpm -path '*/sharp@0.35.3*/node_modules' -type d | head -1)" \
+	&& rm -rf "$PNPM_SHARP_MODS/@img" \
+	&& cp -R /tmp/sharp-img-musl "$PNPM_SHARP_MODS/@img" \
+	&& LIBSQL_MODS="$(find /app/node_modules/.pnpm -path '*/libsql@*/node_modules' -type d | head -1)" \
+	&& rm -rf "$LIBSQL_MODS/@libsql" \
+	&& cp -R /tmp/libsql-musl "$LIBSQL_MODS/@libsql" \
+	&& chown -R aphex:aphex /app/node_modules
+
+USER 10001
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=45s --retries=3 \
+	CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/blog').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["node", "build/index.js"]

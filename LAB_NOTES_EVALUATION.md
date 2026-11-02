@@ -122,3 +122,21 @@ pnpm lab-notes:backup-restore   # backup + restore-proof + rollback-proof + RSS 
 3. `cd apps/studio && set -a && source .env.lab-notes && set +a && pnpm lab-notes:build`
 4. Recreate the process: stop the old listener on **5192** only (`kill $(lsof -tiTCP:5192 -sTCP:LISTEN)`), then start again (`nohup pnpm lab-notes:start >> /tmp/lab-notes-5192.log 2>&1 &`, poll `/blog` → 200).
 5. Re-run `node scripts/lab-notes/backup-restore.mjs restore-proof` after any schema migration if you changed the DB layout.
+
+## Podman runtime (production-style, port 5196)
+
+Eval **5192 stays the live host process** — this path is a separate container on **127.0.0.1:5196** for rehearsal only.
+
+The image is **pre-built staging**, not a full monorepo `pnpm build` inside Docker: `pnpm deploy --filter=@aphexcms/studio --prod --legacy` into `apps/studio/.aphex/lab-notes-podman/staging`, then copy the current `apps/studio/build` (from `pnpm lab-notes:build`). See repo-root `Dockerfile.lab-notes-studio` (includes `npm rebuild sharp` for Alpine). Non-root **uid 10001**, **1g** memory cap, no secrets in the image (runtime `--env-file apps/studio/.env.lab-notes` plus overrides). Each run takes an online **`sqlite3 .backup`** copy of the eval DB plus a copy of uploads into a temp dir under `.aphex/lab-notes-podman/run-*` so the live **5192** files are not written.
+
+```bash
+cd apps/studio
+set -a && source .env.lab-notes && set +a
+pnpm lab-notes:build   # if build/ changed
+./scripts/lab-notes/podman-runtime.sh prove   # build → run on 5196 → curl /blog → stop & rm
+# Image: localhost/aphex-lab-notes-runtime:eval
+```
+
+**Rollback after a bad container upgrade:** stop the container (`./scripts/lab-notes/podman-runtime.sh stop`), restore filesystem state with `node scripts/lab-notes/backup-restore.mjs restore-proof` (or replace `.aphex/lab-notes-eval.db` + uploads from a snapshot under `.aphex/lab-notes-eval/snapshots/`), then `./scripts/lab-notes/podman-runtime.sh prove` again. Host **5192** is unchanged unless you restart it separately.
+
+Measured **5192** Node RSS was about **466 MiB** during the durability drill — a data point only, not a VPS sizing recommendation.
