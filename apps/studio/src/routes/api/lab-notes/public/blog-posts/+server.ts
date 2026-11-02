@@ -7,6 +7,7 @@ import {
 } from '$lib/lab-notes-eval/public-blog-post-api';
 import { siteContext } from '$lib/server/site';
 import { loadTagMap, postTags } from '$lib/blog/tags';
+import { loadAuthorMap, postAuthor } from '$lib/blog/authors';
 
 /** Published Lab Notes archive for the React site (no drafts). */
 export const GET: RequestHandler = async ({ locals, url, setHeaders }) => {
@@ -18,7 +19,10 @@ export const GET: RequestHandler = async ({ locals, url, setHeaders }) => {
 	const localAPI = locals.aphexCMS.localAPI;
 	const assetService = locals.aphexCMS.assetService;
 
-	const tagMap = await loadTagMap(localAPI, pubCtx);
+	const [tagMap, authorMap] = await Promise.all([
+		loadTagMap(localAPI, pubCtx),
+		loadAuthorMap(localAPI, pubCtx, assetService, orgId)
+	]);
 	const result = await localAPI.collections.blog_post.find(pubCtx, {
 		limit: 200
 	});
@@ -30,7 +34,12 @@ export const GET: RequestHandler = async ({ locals, url, setHeaders }) => {
 
 	const mediaOrigin = url.origin;
 	const items = posts.map((post) =>
-		buildPublicBlogPostListItem(post, postTags(post.tags, tagMap), mediaOrigin)
+		buildPublicBlogPostListItem(
+			post,
+			postTags(post.tags, tagMap),
+			postAuthor(post.author, authorMap),
+			mediaOrigin
+		)
 	);
 
 	return json({ success: true, data: items });

@@ -18,6 +18,11 @@ import { cacheAdapter } from './src/lib/server/cache';
 import { labNotesEvalOrigin, labNotesServiceEnabled } from './src/lib/lab-notes-eval/config.js';
 import { mintBlogPostPreviewToken } from './src/lib/lab-notes-eval/preview-tokens.js';
 import { labNotesPreviewViewUrl } from './src/lib/lab-notes-eval/public-origin.js';
+import {
+	ensureDefaultAuthorResolver,
+	parseAuthorUserLinksEnv,
+	applyAuthorUserLinks
+} from './src/lib/blog/default-author.server.js';
 
 /**
  * 👀 Preview perspective — the one knob to flip while developing. Change the return:
@@ -39,7 +44,7 @@ function isTruthy(value: string | undefined): boolean {
 	return ['true', '1', 'yes', 'on'].includes((value ?? '').toLowerCase());
 }
 
-export default createCMSConfig({
+const cmsConfig = createCMSConfig({
 	schemaTypes,
 	plugins: [...basePlugins, labNotesEvalPlugin],
 
@@ -153,3 +158,21 @@ export default createCMSConfig({
 			}
 		: undefined
 });
+
+ensureDefaultAuthorResolver(cmsConfig, db);
+
+const authorUserLinks = parseAuthorUserLinksEnv(env.APHEX_AUTHOR_USER_LINKS);
+if (authorUserLinks.length) {
+	void db
+		.findAllOrganizations()
+		.then((orgs) => {
+			const orgId = orgs[0]?.id;
+			if (!orgId) return;
+			return applyAuthorUserLinks(cmsConfig, db, orgId, authorUserLinks);
+		})
+		.catch((err) => {
+			console.error('[aphex] APHEX_AUTHOR_USER_LINKS failed:', err);
+		});
+}
+
+export default cmsConfig;

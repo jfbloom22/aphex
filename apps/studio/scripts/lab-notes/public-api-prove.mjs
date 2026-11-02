@@ -22,6 +22,12 @@ async function main() {
 	assert.equal(pubBody.success, true);
 	assert.equal(pubBody.data.slug, publishedSlug);
 	assert.ok(Array.isArray(pubBody.data.content), 'published content array');
+	assert.ok(typeof pubBody.data.updatedAt === 'string', 'detail updatedAt');
+	assert.ok(typeof pubBody.data.readingTimeMinutes === 'number', 'detail readingTimeMinutes');
+	assert.ok(
+		typeof pubBody.data.adminEditPath === 'string' && pubBody.data.adminEditPath.includes('/admin?'),
+		'adminEditPath'
+	);
 
 	const badPreview = await fetch(
 		`${base}/api/lab-notes/public/blog-posts/${publishedSlug}?preview=not-a-valid-token`
@@ -44,6 +50,8 @@ async function main() {
 	const first = listBody.data[0];
 	assert.ok(first.slug && first.title, 'list item shape');
 	assert.ok(Array.isArray(first.tags), 'list tags');
+	assert.ok(typeof first.readingTimeMinutes === 'number', 'list readingTimeMinutes');
+	assert.ok(typeof first.updatedAt === 'string', 'list updatedAt');
 	if (first.coverImage?.url) {
 		assert.match(String(first.coverImage.url), /^https?:\/\//, 'absolute cover url');
 	}

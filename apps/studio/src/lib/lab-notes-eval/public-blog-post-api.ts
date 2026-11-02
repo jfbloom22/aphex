@@ -1,7 +1,29 @@
 import type { BlogPost } from '$lib/generated-types';
 import type { AuthorInfo } from '$lib/blog/authors';
 import type { TagInfo } from '$lib/blog/tags';
+import type { ImageValue } from '@aphexcms/cms-core/image';
+import { readingTimeMinutes } from '$lib/blog/reading-time-minutes';
 import { appendPreviewToMediaUrls } from './preview-media-access';
+
+export type PublicAuthorAvatar = {
+	url: string;
+	alt?: string;
+	srcSet?: string;
+};
+
+export type PublicAuthorDetail = {
+	id: string;
+	name: string;
+	slug: string;
+	role?: string;
+	avatar?: PublicAuthorAvatar;
+};
+
+export type PublicAuthorListItem = {
+	name: string;
+	slug: string;
+	role?: string;
+};
 
 export type PublicBlogPostPayload = {
 	id: string;
@@ -19,11 +41,59 @@ export type PublicBlogPostPayload = {
 				noIndex?: boolean;
 		  }
 		| undefined;
-	author: AuthorInfo | null;
-	coAuthors: AuthorInfo[];
+	author: PublicAuthorDetail | null;
+	coAuthors: PublicAuthorDetail[];
 	tags: TagInfo[];
 	sourcePublishedAt: string | null;
+	postDate?: string;
+	updatedAt: string;
+	readingTimeMinutes: number;
+	adminEditPath: string;
 };
+
+export function blogPostAdminEditPath(documentId: string): string {
+	return `/admin?docType=blog_post&docId=${encodeURIComponent(documentId)}`;
+}
+
+function formatMetaDateIso(value: Date | string | null | undefined): string {
+	if (value == null) return new Date(0).toISOString();
+	if (value instanceof Date) return value.toISOString();
+	const parsed = Date.parse(String(value));
+	return Number.isFinite(parsed) ? new Date(parsed).toISOString() : new Date(0).toISOString();
+}
+
+export function publicAuthorAvatarFromImageValue(
+	avatar?: ImageValue
+): PublicAuthorAvatar | undefined {
+	if (!avatar?.asset?.url) return undefined;
+	const alt = avatar.alt ?? avatar.asset.alt;
+	return {
+		url: avatar.asset.url,
+		...(alt ? { alt } : {}),
+		...(avatar.asset.srcset ? { srcSet: avatar.asset.srcset } : {})
+	};
+}
+
+export function toPublicAuthorDetail(author: AuthorInfo | null): PublicAuthorDetail | null {
+	if (!author) return null;
+	const avatar = publicAuthorAvatarFromImageValue(author.avatar);
+	return {
+		id: author.id,
+		name: author.name,
+		slug: author.slug,
+		...(author.role ? { role: author.role } : {}),
+		...(avatar ? { avatar } : {})
+	};
+}
+
+export function toPublicAuthorListItem(author: AuthorInfo | null): PublicAuthorListItem | null {
+	if (!author) return null;
+	return {
+		name: author.name,
+		slug: author.slug,
+		...(author.role ? { role: author.role } : {})
+	};
+}
 
 export function buildPublicBlogPostPayload(
 	post: BlogPost,
@@ -43,14 +113,21 @@ export function buildPublicBlogPostPayload(
 			? {
 					metaTitle: post.seo.metaTitle,
 					metaDescription: post.seo.metaDescription,
-					ogImage: post.seo.ogImage,
+					ogImage:
+						typeof post.seo.ogImage === 'string' ? post.seo.ogImage : post.seo.ogImage?.asset?.url,
 					noIndex: post.seo.noIndex
 				}
 			: undefined,
-		author,
-		coAuthors,
+		author: toPublicAuthorDetail(author),
+		coAuthors: coAuthors
+			.map((a) => toPublicAuthorDetail(a))
+			.filter((a): a is PublicAuthorDetail => !!a),
 		tags,
-		sourcePublishedAt: post.importSource?.sourcePublishedAt ?? null
+		sourcePublishedAt: post.importSource?.sourcePublishedAt ?? null,
+		...(post.postDate ? { postDate: post.postDate } : {}),
+		updatedAt: formatMetaDateIso(post._meta?.updatedAt),
+		readingTimeMinutes: readingTimeMinutes(post.content),
+		adminEditPath: blogPostAdminEditPath(post.id)
 	};
 }
 
@@ -95,11 +172,15 @@ export type PublicBlogPostListItem = {
 	tags: Pick<TagInfo, 'slug' | 'title'>[];
 	postDate?: string;
 	sourcePublishedAt: string | null;
+	author: PublicAuthorListItem | null;
+	readingTimeMinutes: number;
+	updatedAt: string;
 };
 
 export function buildPublicBlogPostListItem(
 	post: BlogPost,
 	tags: TagInfo[],
+	author: AuthorInfo | null,
 	mediaOrigin: string
 ): PublicBlogPostListItem {
 	const item: PublicBlogPostListItem = {
@@ -109,7 +190,10 @@ export function buildPublicBlogPostListItem(
 		coverImage: post.coverImage,
 		tags: tags.map(({ slug, title }) => ({ slug, title })),
 		postDate: post.postDate,
-		sourcePublishedAt: post.importSource?.sourcePublishedAt ?? null
+		sourcePublishedAt: post.importSource?.sourcePublishedAt ?? null,
+		author: toPublicAuthorListItem(author),
+		readingTimeMinutes: readingTimeMinutes(post.content),
+		updatedAt: formatMetaDateIso(post._meta?.updatedAt)
 	};
 	return toAbsoluteMediaUrls(item, mediaOrigin) as PublicBlogPostListItem;
 }

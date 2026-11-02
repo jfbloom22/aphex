@@ -13,6 +13,7 @@ import {
 	fluencyLevelPicker
 } from './objects/blocks.js';
 import videoBlock from './videoBlock.js';
+import { defaultAuthorOnCreateHook } from '$lib/blog/default-author-hook';
 
 const blogPostType = defineType({
 	type: 'document',
@@ -174,7 +175,10 @@ const blogPostType = defineType({
 			]
 		}
 		// SEO is auto-injected by seoPlugin({ collections: [...] }) in plugins.ts.
-	]
+	],
+	hooks: {
+		beforeValidate: [defaultAuthorOnCreateHook]
+	}
 });
 
 // `search` is derived from the declared fields, so it can't sit inside the
