@@ -36,6 +36,7 @@
 		"private-asset-check": "tsx --env-file-if-exists=.env scripts/private-asset-check.ts",
 		"lab-notes:fetch-ghost": "node scripts/lab-notes/fetch-ghost-export.mjs",
 		"lab-notes:import": "node scripts/lab-notes/import-via-mcp.mjs",
+		"lab-notes:provision-import-key": "node scripts/lab-notes/provision-import-key.mjs",
 		"lab-notes:import-prove": "node scripts/lab-notes/import-prove.mjs",
 		"lab-notes:preview-prove": "node scripts/lab-notes/preview-token-prove.mjs",
 		"lab-notes:public-prove": "node scripts/lab-notes/public-api-prove.mjs",
