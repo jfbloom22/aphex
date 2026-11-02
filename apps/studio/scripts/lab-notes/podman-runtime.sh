@@ -11,6 +11,8 @@ CONTAINER=lab-notes-runtime
 HOST_PORT=5196
 CONTAINER_PORT=3000
 MEMORY="${LAB_NOTES_PODMAN_MEMORY:-1g}"
+CONTAINER_UID=10001
+CONTAINER_GID=10001
 RUN_DATA=""
 
 cd "$ROOT"
@@ -21,10 +23,14 @@ prepare_run_data() {
 	RUN_DATA="$(mktemp -d "$STUDIO/.aphex/lab-notes-podman/run-XXXXXX")"
 	echo "[podman-runtime] snapshot db + uploads → $RUN_DATA (live eval db untouched)"
 	sqlite3 "$STUDIO/.aphex/lab-notes-eval.db" ".backup '$RUN_DATA/lab-notes-eval.db'"
-	chmod a+rw "$RUN_DATA/lab-notes-eval.db"
 	cp -R "$STUDIO/.aphex/lab-notes-uploads" "$RUN_DATA/uploads"
 	mkdir -p "$RUN_DATA/eval-sidecar"
 	cp "$STUDIO/.aphex/lab-notes-eval/mcp-api-key.txt" "$RUN_DATA/eval-sidecar/" 2>/dev/null || true
+	# macOS cannot chown to arbitrary UIDs on the host; fix ownership in the Podman VM.
+	podman run --rm --user 0:0 \
+		-v "$RUN_DATA:/data:Z" \
+		docker.io/library/alpine:3.20 \
+		chown -R "${CONTAINER_UID}:${CONTAINER_GID}" /data
 }
 
 cleanup_run_data() {
@@ -51,6 +57,15 @@ build_image() {
 	podman build -f Dockerfile.lab-notes-studio -t "$IMAGE" .
 }
 
+ensure_image() {
+	if podman image exists "$IMAGE" >/dev/null 2>&1; then
+		echo "[podman-runtime] using existing image $IMAGE"
+		return 0
+	fi
+	echo "[podman-runtime] image missing — building once"
+	build_image
+}
+
 run_container() {
 	local env_file="$STUDIO/.env.lab-notes"
 	if [[ ! -f "$env_file" ]]; then
@@ -64,7 +79,7 @@ run_container() {
 
 	podman run -d \
 		--name "$CONTAINER" \
-		--user 0:0 \
+		--user "${CONTAINER_UID}:${CONTAINER_GID}" \
 		--memory="$MEMORY" \
 		--publish "127.0.0.1:${HOST_PORT}:${CONTAINER_PORT}" \
 		--env-file "$env_file" \
@@ -115,7 +130,7 @@ case "$cmd" in
 		echo "{\"ok\":true,\"image\":\"$IMAGE\",\"blogHttp\":$code,\"port\":$HOST_PORT}"
 		;;
 	prove)
-		build_image
+		ensure_image
 		run_container
 		trap stop_container EXIT
 		code="$(wait_blog)"
