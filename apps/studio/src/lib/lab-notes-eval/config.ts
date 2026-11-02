@@ -1,11 +1,23 @@
 import { env } from '$env/dynamic/private';
 import { join } from 'node:path';
 
-/** SPR-071 Aphex eval mode — separate SQLite DB, port 5192, Lab Notes public skin. */
+function envFlag(name: string): boolean {
+	const bag = env as Record<string, string | undefined>;
+	const value = bag[name] ?? process.env[name] ?? '';
+	return ['true', '1', 'yes', 'on'].includes(value.toLowerCase());
+}
+
+/** Local eval only. Seeds the known eval users. Never set this on a public host. */
 export function labNotesEvalEnabled(): boolean {
-	return ['true', '1', 'yes', 'on'].includes(
-		(env.LAB_NOTES_EVAL ?? process.env.LAB_NOTES_EVAL ?? '').toLowerCase()
-	);
+	return envFlag('LAB_NOTES_EVAL');
+}
+
+/**
+ * Public JSON, preview tokens, draft media, and MCP draft links.
+ * `LAB_NOTES_PUBLIC` turns those on without seeding eval identities.
+ */
+export function labNotesServiceEnabled(): boolean {
+	return labNotesEvalEnabled() || envFlag('LAB_NOTES_PUBLIC');
 }
 
 export function labNotesEvalOrigin(): string {

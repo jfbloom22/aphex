@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { labNotesEvalEnabled } from '$lib/lab-notes-eval/config';
+import { labNotesServiceEnabled } from '$lib/lab-notes-eval/config';
 import {
 	buildPublicBlogPostListItem,
 	postInLabNotesPublicArchive
@@ -10,7 +10,7 @@ import { loadTagMap, postTags } from '$lib/blog/tags';
 
 /** Published Lab Notes archive for the React site (no drafts). */
 export const GET: RequestHandler = async ({ locals, url, setHeaders }) => {
-	if (!labNotesEvalEnabled()) error(404, 'Not found');
+	if (!labNotesServiceEnabled()) error(404, 'Not found');
 	setHeaders({ 'cache-control': 'public, max-age=60, stale-while-revalidate=120' });
 
 	const { orgId, context } = await siteContext(locals);

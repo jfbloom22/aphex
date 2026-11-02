@@ -1,13 +1,15 @@
 import { z } from 'zod';
 import { definePlugin } from '@aphexcms/cms-core';
 import type { AgentToolExecutor, AgentToolResult } from '@aphexcms/cms-core/schema';
-import { labNotesEvalEnabled } from '$lib/lab-notes-eval/config';
 import { mintBlogPostPreviewToken } from '$lib/lab-notes-eval/preview-tokens';
 import { labNotesPreviewViewUrl } from '$lib/lab-notes-eval/public-origin';
 import type { BlogPostWithLocalMeta } from '$lib/lab-notes-eval/document-meta';
 
-const evalEnabled = () =>
-	['true', '1', 'yes', 'on'].includes((process.env.LAB_NOTES_EVAL ?? '').toLowerCase());
+const serviceEnabled = () => {
+	const on = (value: string | undefined) =>
+		['true', '1', 'yes', 'on'].includes((value ?? '').toLowerCase());
+	return on(process.env.LAB_NOTES_EVAL) || on(process.env.LAB_NOTES_PUBLIC);
+};
 
 const PLUGIN_ID = '@aphexcms/lab-notes-eval';
 
@@ -23,8 +25,8 @@ const mintPreviewTokenInputSchema = z.object({
 });
 
 const mintPreviewTokenExecute: AgentToolExecutor = async (input, ctx) => {
-	if (!evalEnabled()) {
-		return { success: false, error: 'LAB_NOTES_EVAL is not enabled on this server.' };
+	if (!serviceEnabled()) {
+		return { success: false, error: 'Lab Notes public service is not enabled on this server.' };
 	}
 	const parsed = mintPreviewTokenInputSchema.safeParse(input);
 	if (!parsed.success) {
@@ -64,8 +66,8 @@ const mintPreviewTokenExecute: AgentToolExecutor = async (input, ctx) => {
 };
 
 const previewDraftUrlExecute: AgentToolExecutor = async (input, ctx) => {
-	if (!evalEnabled()) {
-		return { success: false, error: 'LAB_NOTES_EVAL is not enabled on this server.' };
+	if (!serviceEnabled()) {
+		return { success: false, error: 'Lab Notes public service is not enabled on this server.' };
 	}
 	const parsed = previewDraftInputSchema.safeParse(input);
 	if (!parsed.success) {
@@ -106,8 +108,8 @@ const listInteractiveExecute: AgentToolExecutor = async (
 	_input,
 	_ctx
 ): Promise<AgentToolResult> => {
-	if (!evalEnabled()) {
-		return { success: false, error: 'LAB_NOTES_EVAL is not enabled on this server.' };
+	if (!serviceEnabled()) {
+		return { success: false, error: 'Lab Notes public service is not enabled on this server.' };
 	}
 	return {
 		success: true,

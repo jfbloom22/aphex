@@ -15,7 +15,7 @@ import { email } from './src/lib/server/email';
 import { registerInvitationEmailHook } from './src/lib/server/email/invitation-hook';
 import { storageAdapter } from './src/lib/server/storage';
 import { cacheAdapter } from './src/lib/server/cache';
-import { labNotesEvalEnabled, labNotesEvalOrigin } from './src/lib/lab-notes-eval/config.js';
+import { labNotesEvalOrigin, labNotesServiceEnabled } from './src/lib/lab-notes-eval/config.js';
 import { mintBlogPostPreviewToken } from './src/lib/lab-notes-eval/preview-tokens.js';
 import { labNotesPreviewViewUrl } from './src/lib/lab-notes-eval/public-origin.js';
 
@@ -63,7 +63,7 @@ export default createCMSConfig({
 	auth: {
 		provider: authProvider,
 		loginUrl: '/login', // Redirect here when unauthenticated
-		...(labNotesEvalEnabled()
+		...(labNotesServiceEnabled()
 			? { readOnlyPostApiPaths: ['/api/lab-notes/preview-token'] as const }
 			: {})
 	},
@@ -137,9 +137,9 @@ export default createCMSConfig({
 		registerInvitationEmailHook(app);
 	},
 
-	publicOrigin: labNotesEvalEnabled() ? labNotesEvalOrigin() : undefined,
+	publicOrigin: labNotesServiceEnabled() ? labNotesEvalOrigin() : undefined,
 
-	mcpSavedDraftLinks: labNotesEvalEnabled()
+	mcpSavedDraftLinks: labNotesServiceEnabled()
 		? async ({ collection, document }) => {
 				if (collection !== 'blog_post') return {};
 				const slug = typeof document.slug === 'string' ? document.slug : null;

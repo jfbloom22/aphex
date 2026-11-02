@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { labNotesEvalEnabled } from '$lib/lab-notes-eval/config';
+import { labNotesServiceEnabled } from '$lib/lab-notes-eval/config';
 import { requirePreviewTokenMinter } from '$lib/lab-notes-eval/preview-mint-auth';
 import { resolveLabNotesRequestAuth } from '$lib/lab-notes-eval/request-auth';
 import { mintBlogPostPreviewToken } from '$lib/lab-notes-eval/preview-tokens';
@@ -15,7 +15,7 @@ const bodySchema = z.object({
 });
 
 export const POST: RequestHandler = async ({ locals, request }) => {
-	if (!labNotesEvalEnabled()) error(404, 'Not found');
+	if (!labNotesServiceEnabled()) error(404, 'Not found');
 	const auth = await resolveLabNotesRequestAuth(locals, request);
 	requirePreviewTokenMinter(auth);
 	const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
@@ -57,6 +57,6 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 };
 
 export const GET: RequestHandler = () => {
-	if (!labNotesEvalEnabled()) error(404, 'Not found');
+	if (!labNotesServiceEnabled()) error(404, 'Not found');
 	error(405, 'Method Not Allowed');
 };

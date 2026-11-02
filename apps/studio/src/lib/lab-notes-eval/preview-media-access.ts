@@ -1,7 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { collectAssetIdsUnstructured } from '@aphexcms/cms-core/utils/asset-reference-walk';
 import { systemContext } from '@aphexcms/cms-core/local-api/auth-helpers';
-import { labNotesEvalEnabled } from './config';
+import { labNotesServiceEnabled } from './config';
 import { resolvePreviewToken } from './preview-tokens';
 
 /**
@@ -9,7 +9,7 @@ import { resolvePreviewToken } from './preview-tokens';
  * Returns a Response when access must be denied; null to continue to the CDN handler.
  */
 export async function assertPreviewMediaAccess(event: RequestEvent): Promise<Response | null> {
-	if (!labNotesEvalEnabled()) return null;
+	if (!labNotesServiceEnabled()) return null;
 
 	const assetId = event.params.id;
 	if (!assetId) return null;

@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { labNotesEvalEnabled } from '$lib/lab-notes-eval/config';
+import { labNotesServiceEnabled } from '$lib/lab-notes-eval/config';
 import { resolvePreviewTokenForSlug } from '$lib/lab-notes-eval/preview-tokens';
 import {
 	buildPublicBlogPostPayload,
@@ -46,7 +46,7 @@ async function loadBlogPostBySlug(
 
 /** Public read for the React site — published by default; draft with valid `?preview=`. */
 export const GET: RequestHandler = async ({ locals, params, url, setHeaders }) => {
-	if (!labNotesEvalEnabled()) error(404, 'Not found');
+	if (!labNotesServiceEnabled()) error(404, 'Not found');
 
 	const previewToken = url.searchParams.get('preview');
 	if (previewToken !== null && previewToken !== '') {
