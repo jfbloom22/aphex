@@ -29,11 +29,11 @@ Import no longer uses Turndown or a hand-rolled markdown splitter. Ghost `post.h
 **Tests:** `pnpm lab-notes:test-converter` (node:test fixture + real export link sample).  
 **Live check:** `pnpm lab-notes:verify` asserts every http(s) href in Ghost body HTML appears as a `.blog-link` in rendered article prose (nav/tag links excluded).
 
-## Metadata limitations (honest)
+## Metadata the importer writes
 
-- **`postDate`:** date portion of Ghost `published_at` only (no time-of-day in schema field).
-- **Authors:** first Ghost author → `author` reference; bios/avatars not backfilled from export unless present in CMS.
-- **SEO / OG:** `@aphexcms/plugin-seo` fields not populated from Ghost meta; no claim of pixel-perfect SEO or social card parity with production Ghost.
+- **`postDate`:** calendar date from Ghost `published_at`. The full timestamp is `importSource.sourcePublishedAt`. A top-level `publishedAt` is reserved and crashes boot.
+- **Authors:** first Ghost author is `author`. Further authors are `coAuthors`. Bios and avatars are not invented when the export lacks them.
+- **SEO / OG:** Ghost meta title, description, and OG image are copied onto `seo` when the export has them. The website still applies its empty-field fallbacks.
 
 ## Setup
 
@@ -52,23 +52,11 @@ pnpm lab-notes:smoke-mcp
 pnpm check
 ```
 
-## Human approval gate (SPR-071 H1 spike)
+## Publish permission (H1)
 
-**Core patch:** `CMSConfig.publishGate` runs on every native publish path (`CollectionAPI.publish`, `create`/`update` with `publish: true`, including scheduled publish). It is **not** skipped when `overrideAccess` is true. When unset, core behavior is unchanged.
+`publishGate`, the JSON approval file, and `/staff/review` are removed. The person publishes in the Aphex admin. OAuth tokens used by the agent omit `document.publish`, so `publish_document` and `create` or `update` with `publish: true` fail. An admin session for the same person can still publish.
 
-**Eval wiring:** With `LAB_NOTES_EVAL=true`, `aphex.config.ts` registers a gate that requires a single-use staff approval for **`blog_post` only**, stored in `.aphex/lab-notes-eval/publish-approvals.json`.
-
-| Action                           | Who                                                                                                     | Result                                        |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Approve draft revision           | Signed-in staff session (`document.publish`) via `/staff/review` or `POST /api/lab-notes/staff-publish` | Creates approval for `(documentId, revision)` |
-| Publish                          | MCP / HTTP / scheduled job                                                                              | Consumes matching approval or fails closed    |
-| MCP `approved` / `approvalToken` | Agent                                                                                                   | Ignored — not enforcement                     |
-
-**Staff identity (local eval only):** On first request, the server ensures three Better Auth users (see `.aphex/lab-notes-eval/eval-identities.json`): `staffA` and `staffB` (org `editor`, can approve) and `outsider` (no org membership). Shared bearer tokens and MCP API keys are **not** people — keys are org-scoped automation credentials without a user id.
-
-**Not in this spike:** Open WebUI identity mapping, production SSO, or production readiness.
-
-**Later check:** Per-user Open WebUI identity must map onto these staff principals; one shared MCP key must not substitute for multi-user approval.
+**Staff identity (local eval only):** `ensure-identities.server.ts` creates `lab-notes-staff-a@eval.local`, `lab-notes-staff-b@eval.local`, and `lab-notes-outsider@eval.local`. Those accounts are local. They are not production users. The two-person Open WebUI rehearsal is deferred.
 
 ## Fixture cleanup
 
@@ -76,19 +64,21 @@ pnpm check
 
 ## Last verification (2026-11-02)
 
-| Command                                                            | Result                                                          |
-| ------------------------------------------------------------------ | --------------------------------------------------------------- |
-| `APHEX_DATABASE=sqlite pnpm vitest run tests/publish-gate.test.ts` | 3/3 pass                                                        |
-| `pnpm lab-notes:test-converter`                                    | 4/4 pass                                                        |
-| `pnpm lab-notes:verify`                                            | ok (approval gate + corpus checks)                              |
-| Server PID (5192)                                                  | restart after gate deploy (see `lsof -tiTCP:5192 -sTCP:LISTEN`) |
+| Command                                       | Result                                                                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm -F @aphexcms/cms-core test`             | 223/223                                                                                                                  |
+| `pnpm lab-notes:verify`                       | ok: 17 articles, 17 covers, 26 prompts, OAuth staff tokens, publish denied on the OAuth token, admin session can publish |
+| `pnpm lab-notes:import-prove`                 | every export post accounted for; a second import skips a local edit                                                      |
+| `./scripts/lab-notes/podman-runtime.sh prove` | `/blog` HTTP 200 on `127.0.0.1:5196` as uid 10001, then the container is removed                                         |
 
-Example preview (token expires): mint via MCP `preview_draft_url` for `native-svelte-visual-lab`.
+Preview URL from MCP `preview_draft_url`: `https://www.workplacelabs.io/blog/<slug>/?preview=<token>`. The token lasts 30 days. Override the public origin with `LAB_NOTES_PUBLIC_ORIGIN`.
 
 ## Cross-repo deps
 
-- Export + media: `wl-workspace/.worktrees/lab-notes-alternative/experiments/lab-notes/data/`
-- V1 **5191**; V3 mdsvex **5193/5194**
+- Ghost export is fetched at import time from the website env (`GHOST_URL`, `GHOST_CONTENT_API_KEY` in `workplace-labs-web/.env`). Do not point scripts at the deleted `experiments/lab-notes` export.
+- Public reader: `workplace-labs-web/.worktrees/lab-notes-reader` (`dc055e8`). It loads Aphex only when `LAB_NOTES_APHEX_ORIGIN` is set.
+- Compose scaffold, not a deploy: `workplace-ai-toolkit/.worktrees/spr071-lab-notes-runtime/services/lab-notes/` (`d6a983f`).
+- V1 **5191** and V3 mdsvex **5193/5194** were comparison ports. Do not restart them for this MVP.
 
 ## Durability (backup, restore drill, fork upgrade)
 
@@ -127,7 +117,9 @@ pnpm lab-notes:backup-restore   # backup + restore-proof + rollback-proof + RSS 
 
 Eval **5192 stays the live host process** — this path is a separate container on **127.0.0.1:5196** for rehearsal only.
 
-The image is **pre-built staging**, not a full monorepo `pnpm build` inside Docker: `pnpm deploy --filter=@aphexcms/studio --prod --legacy` into `apps/studio/.aphex/lab-notes-podman/staging`, then copy the current `apps/studio/build` (from `pnpm lab-notes:build`). See repo-root `Dockerfile.lab-notes-studio` (includes `npm rebuild sharp` for Alpine). Non-root **uid 10001**, **1g** memory cap, no secrets in the image (runtime `--env-file apps/studio/.env.lab-notes` plus overrides). Each run takes an online **`sqlite3 .backup`** copy of the eval DB plus a copy of uploads into a temp dir under `.aphex/lab-notes-podman/run-*` so the live **5192** files are not written.
+The image is **pre-built staging**, not a full monorepo `pnpm build` inside Docker: `pnpm deploy --filter=@aphexcms/studio --prod --legacy` into `apps/studio/.aphex/lab-notes-podman/staging`, then copy the current `apps/studio/build` (from `pnpm lab-notes:build`). `Dockerfile.lab-notes-studio` grafts Alpine `sharp@0.35.3` and `@libsql/linux-arm64-musl` over the macOS bindings from that deploy. Do not use `podman build --no-cache`. The Podman machine is 6 GiB and a cacheless build exhausts the host.
+
+The app container runs as **uid 10001** with a **1g** memory cap. Secrets stay out of the image (runtime `--env-file apps/studio/.env.lab-notes` plus overrides). Each run copies the eval DB with SQLite `.backup` and copies uploads into `.aphex/lab-notes-podman/run-*`. The live 5192 files are not mounted writable. macOS cannot `chown` to uid 10001, so `podman-runtime.sh` runs a one-off Alpine container as root to chown that temp copy, then starts the app as `10001:10001`. Do not run the app as root. Podman ignores the Dockerfile `HEALTHCHECK`.
 
 ```bash
 cd apps/studio
