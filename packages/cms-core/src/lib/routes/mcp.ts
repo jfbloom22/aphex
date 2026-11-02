@@ -37,12 +37,20 @@ async function authenticate(request: Request, locals: App.Locals): Promise<Auth 
 		const match = authz?.match(/^Bearer\s+(.+)$/i);
 		if (match && match[1]) key = match[1];
 	}
-	if (!key) return null;
+	if (key) {
+		// validateApiKey only reads the x-api-key header — hand it a headers-only
+		// request so we never touch the real JSON-RPC body stream.
+		const keyRequest = new Request(request.url, { headers: { 'x-api-key': key } });
+		const apiKeyAuth = await provider.validateApiKey(keyRequest, databaseAdapter);
+		if (apiKeyAuth) return apiKeyAuth;
+	}
 
-	// validateApiKey only reads the x-api-key header — hand it a headers-only
-	// request so we never touch the real JSON-RPC body stream.
-	const keyRequest = new Request(request.url, { headers: { 'x-api-key': key } });
-	return provider.validateApiKey(keyRequest, databaseAdapter);
+	if (provider.validateMcpOAuthAccessToken) {
+		const oauthAuth = await provider.validateMcpOAuthAccessToken(request, databaseAdapter);
+		if (oauthAuth) return oauthAuth;
+	}
+
+	return null;
 }
 
 // Hono is used only as the web-standard transport host for @hono/mcp — not as a
@@ -55,7 +63,7 @@ app.all('*', async (c) => {
 
 	const auth = await authenticate(c.req.raw, locals);
 	if (!auth) {
-		return c.json({ error: 'Unauthorized: missing or invalid API key' }, 401);
+		return c.json({ error: 'Unauthorized: missing or invalid credentials' }, 401);
 	}
 
 	// Build a fresh server per request so tools are bound to this caller's

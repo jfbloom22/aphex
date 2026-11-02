@@ -15,6 +15,7 @@ import { db, drizzleDb, dbDialect } from '$lib/server/db';
 import { email, emailConfig } from '$lib/server/email';
 import { cacheAdapter } from '$lib/server/cache';
 import { authOptions, bootstrapPolicy } from './auth.config';
+import { labNotesBetterAuthExtend } from '$lib/lab-notes-eval/mcp-oauth.server';
 
 // Both spellings are accepted; AUTH_* is preferred. During SvelteKit's
 // build/analyse pass the package substitutes placeholders, since that worker
@@ -62,5 +63,6 @@ export const {
 	cache: cacheAdapter,
 	options: authOptions,
 	bootstrap: bootstrapPolicy,
-	appName: 'Aphex CMS'
+	appName: 'Aphex CMS',
+	betterAuth: labNotesBetterAuthExtend
 });

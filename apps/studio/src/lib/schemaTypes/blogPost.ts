@@ -1,7 +1,17 @@
 import { defineType } from '@aphexcms/cms-core';
 import { searchableFields } from '@aphexcms/cms-core/schema';
 import { BookOpen } from '@lucide/svelte';
-import { callout, codeBlock, embed, toggle, divider, button, gallery } from './objects/blocks.js';
+import {
+	callout,
+	codeBlock,
+	embed,
+	toggle,
+	divider,
+	button,
+	gallery,
+	runPrompt,
+	fluencyLevelPicker
+} from './objects/blocks.js';
 import videoBlock from './videoBlock.js';
 
 const blogPostType = defineType({
@@ -59,6 +69,13 @@ const blogPostType = defineType({
 			group: 'settings'
 		},
 		{
+			name: 'coAuthors',
+			type: 'array',
+			title: 'Co-authors',
+			group: 'settings',
+			of: [{ type: 'reference', to: [{ type: 'author' }] }]
+		},
+		{
 			name: 'excerpt',
 			type: 'text',
 			title: 'Excerpt',
@@ -104,7 +121,9 @@ const blogPostType = defineType({
 				divider,
 				button,
 				gallery,
-				videoBlock
+				videoBlock,
+				runPrompt,
+				fluencyLevelPicker
 			],
 			validation: (Rule) => Rule.required()
 		},
@@ -115,6 +134,44 @@ const blogPostType = defineType({
 			group: 'settings',
 			description: 'Topics this post belongs to',
 			of: [{ type: 'reference', to: [{ type: 'tag' }] }]
+		},
+		{
+			name: 'importSource',
+			type: 'object',
+			title: 'Import source',
+			group: 'settings',
+			description: 'Written by Ghost import; used for idempotent updates',
+			fields: [
+				{ name: 'sourceSystem', type: 'string', title: 'Source system' },
+				{ name: 'externalId', type: 'string', title: 'External id' },
+				{ name: 'contentHash', type: 'string', title: 'Content hash' },
+				{
+					name: 'revisionAtImport',
+					type: 'number',
+					title: 'Revision at last import'
+				},
+				{ name: 'importedAt', type: 'datetime', title: 'Last imported at' },
+				{
+					name: 'sourcePublishedAt',
+					type: 'datetime',
+					title: 'Source published at',
+					description: 'Exact publication time from Ghost (importSource.sourcePublishedAt)'
+				}
+			]
+		},
+		{
+			name: 'importReview',
+			type: 'object',
+			title: 'Import review',
+			group: 'settings',
+			fields: [
+				{
+					name: 'failures',
+					type: 'array',
+					title: 'Review failures',
+					of: [{ type: 'string' }]
+				}
+			]
 		}
 		// SEO is auto-injected by seoPlugin({ collections: [...] }) in plugins.ts.
 	]

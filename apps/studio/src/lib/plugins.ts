@@ -11,16 +11,27 @@ import { colorPickerPlugin } from '@aphexcms/plugin-color-picker';
 import { notifyPlugin } from './plugins/notify-plugin';
 import { formsPlugin } from './forms/forms-plugin';
 
+const LAB_NOTES_PUBLIC_ORIGIN = (
+	process.env.LAB_NOTES_PUBLIC_ORIGIN ?? 'https://www.workplacelabs.io'
+).replace(/\/$/, '');
+
 export const plugins = [
 	seoPlugin({
-		// Auto-enable SEO on these document types (injects the meta group if absent).
 		collections: ['blog_post', 'page', 'author', 'tag'],
-		// Title & description are left to the defaults, which read each type's own
-		// `preview` config — so blog_post uses title/excerpt, author uses name/bio,
-		// and tag uses title/description without per-type wiring here. Only the public
-		// URL is route-specific, so that's the one thing we scope by collection.
+		generateTitle: (doc, ctx) => {
+			if (ctx?.typeName === 'blog_post') {
+				const base =
+					typeof doc.title === 'string' && doc.title.trim() ? doc.title.trim() : 'Untitled';
+				return `${base} | Lab Notes | Workplace Labs`;
+			}
+			const t = doc.title ?? doc.name ?? doc.heading;
+			return typeof t === 'string' ? t : '';
+		},
 		generateURL: (doc, { typeName }) => {
 			const slug = typeof doc.slug === 'string' ? doc.slug : '';
+			if (typeName === 'blog_post') {
+				return `${LAB_NOTES_PUBLIC_ORIGIN}/blog/${slug}/`;
+			}
 			if (typeName === 'author') return `/author/${slug}`;
 			if (typeName === 'tag') return `/tag/${slug}`;
 			if (typeName === 'page') return `/${slug}`;

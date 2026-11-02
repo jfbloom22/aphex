@@ -126,7 +126,10 @@ export async function handleAuthHook(
 		// Check write permission for mutations
 		if (auth && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(event.request.method)) {
 			// Whitelist read-only POST endpoints (query operations that use POST for complex payloads)
-			const readOnlyPostEndpoints = ['/api/documents/query'];
+			const readOnlyPostEndpoints = [
+				'/api/documents/query',
+				...(config.auth?.readOnlyPostApiPaths ?? [])
+			];
 			const isReadOnlyPost = readOnlyPostEndpoints.some((route) => path === route);
 
 			if (!isReadOnlyPost) {

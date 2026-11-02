@@ -67,6 +67,35 @@ const ok = (data: unknown): AgentToolResult => ({ success: true, data });
 
 const fail = (message: string): AgentToolResult => ({ success: false, error: message });
 
+async function augmentSavedDraftResult(
+	aphexCMS: CMSInstances,
+	context: LocalAPIContext,
+	collection: string,
+	result: unknown
+): Promise<unknown> {
+	if (!result || typeof result !== 'object') return result;
+	const doc = (result as { document?: Record<string, unknown> }).document;
+	if (!doc?.id) return result;
+	const links: Record<string, string> = {};
+	const origin = aphexCMS.config.publicOrigin;
+	if (origin) {
+		links.adminUrl = `${origin}/admin?docType=${encodeURIComponent(collection)}&docId=${encodeURIComponent(String(doc.id))}`;
+	}
+	if (aphexCMS.config.mcpSavedDraftLinks) {
+		Object.assign(
+			links,
+			await aphexCMS.config.mcpSavedDraftLinks({
+				collection,
+				document: doc,
+				organizationId: context.organizationId,
+				aphexCMS
+			})
+		);
+	}
+	if (Object.keys(links).length === 0) return result;
+	return { ...(result as Record<string, unknown>), links };
+}
+
 function asString(args: Record<string, unknown>, key: string): string | null {
 	const v = args[key];
 	return typeof v === 'string' && v.length > 0 ? v : null;
@@ -477,7 +506,7 @@ export const contentAgentTools: ContentAgentTool[] = [
 			if (!col) return fail(`Unknown collection: ${collection}`);
 			try {
 				const result = await col.create(context, data, { publish: args.publish === true });
-				return ok(result);
+				return ok(await augmentSavedDraftResult(aphexCMS, context, collection, result));
 			} catch (err) {
 				return fail(`Create failed: ${err instanceof Error ? err.message : String(err)}`);
 			}
@@ -521,7 +550,7 @@ export const contentAgentTools: ContentAgentTool[] = [
 						typeof args.expectedRevision === 'number' ? args.expectedRevision : undefined
 				});
 				if (!result) return fail(`Document not found: ${collection}/${id}`);
-				return ok(result);
+				return ok(await augmentSavedDraftResult(aphexCMS, context, collection, result));
 			} catch (err) {
 				return fail(`Update failed: ${err instanceof Error ? err.message : String(err)}`);
 			}

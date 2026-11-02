@@ -49,6 +49,14 @@ export function authToContext(auth: Auth | null | undefined): LocalAPIContext {
 		};
 	}
 
+	if (auth.type === 'oauth_access') {
+		return {
+			organizationId: auth.organizationId,
+			user: auth.user,
+			auth: auth
+		};
+	}
+
 	// For API key auth, create a synthetic user for permission checking
 	// API keys don't have traditional user accounts, but we need user info
 	// for the permission system to work correctly

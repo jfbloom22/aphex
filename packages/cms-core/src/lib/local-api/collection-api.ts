@@ -31,7 +31,6 @@ import {
 	dropLockedWrites,
 	stripHiddenFields
 } from '../field-access';
-
 /**
  * Result from create/update operations that includes validation
  */
@@ -706,17 +705,12 @@ export class CollectionAPI<T = Document> {
 					if (published) await emitDocumentPublished(tx, context.organizationId, published);
 				}
 
-				// Both reference indexes commit with the document. They used to run
-				// after the transaction, best-effort, which meant a document could
-				// exist with no record of what it points at — and the "Unused" asset
-				// filter and the publish guards both read those records as fact.
 				await this.syncReferences(
 					tx,
 					context.organizationId,
 					document.id,
 					validationResult.normalizedData
 				);
-				// Created and published in one call, so both planes hold this same data.
 				await this.syncAssetReferences(
 					tx,
 					context.organizationId,
@@ -731,9 +725,6 @@ export class CollectionAPI<T = Document> {
 				return { document, published };
 			});
 
-			// Post-commit: search text is genuinely best-effort — a missed row costs a
-			// search result, never a deletion decision — and retention is one pass
-			// covering both the draft and publish snapshots written inside the tx.
 			await this.syncSearchText(
 				context.organizationId,
 				document.id,
@@ -760,7 +751,6 @@ export class CollectionAPI<T = Document> {
 					validation: validationResult
 				};
 			}
-			// publishDoc returned null (unexpected): fall back to returning the draft.
 			if (this.documentCache) {
 				await this.documentCache.invalidateCollection(context.organizationId, this.collectionName);
 			}
@@ -894,6 +884,17 @@ export class CollectionAPI<T = Document> {
 		});
 		this.assertStructurallyValid(validationResult);
 
+		if (options?.publish) {
+			await this.permissions.canPublish(context, this.collectionName, existingDoc);
+
+			if (!validationResult.isValid) {
+				const errorMessage = validationResult.errors
+					.map((e) => `${e.field}: ${e.errors.join(', ')}`)
+					.join('; ');
+				throw new Error(`Cannot publish: validation errors - ${errorMessage}`);
+			}
+		}
+
 		// Update draft with normalized data (dates in ISO format)
 		// Use VersionService for atomic save + version creation if available
 		// RevisionConflictError propagates un-swallowed — a stale caller (a second
@@ -945,7 +946,6 @@ export class CollectionAPI<T = Document> {
 		if (options?.publish) {
 			await this.permissions.canPublish(context, this.collectionName, document);
 
-			// Block publish if validation fails
 			if (!validationResult.isValid) {
 				const errorMessage = validationResult.errors
 					.map((e) => `${e.field}: ${e.errors.join(', ')}`)
@@ -958,11 +958,15 @@ export class CollectionAPI<T = Document> {
 					? await this.versionService.publishWithVersion(
 							this.databaseAdapter,
 							context.organizationId,
-							document.id
+							document.id,
+							options?.expectedRevision
 						)
-					: await this.publishWithoutVersion(context.organizationId, document.id);
+					: await this.publishWithoutVersion(
+							context.organizationId,
+							document.id,
+							options?.expectedRevision
+						);
 			if (published) {
-				// Invalidate cache
 				if (this.documentCache) {
 					await this.documentCache.invalidateDocument(context.organizationId, id);
 					await this.documentCache.invalidateCollection(
@@ -1101,10 +1105,8 @@ export class CollectionAPI<T = Document> {
 			}
 		}
 
-		// Validation passed - proceed with publish (with version if service available). Either
-		// branch emits `document.published`: the versioned path from publishTx, the non-versioned
-		// path from publishWithoutVersion.
-		const publishedDocument = this.versionService
+		let publishedDocument: Document | null;
+		publishedDocument = this.versionService
 			? await this.versionService.publishWithVersion(
 					this.databaseAdapter,
 					context.organizationId,
@@ -1115,6 +1117,10 @@ export class CollectionAPI<T = Document> {
 		if (!publishedDocument) {
 			return null;
 		}
+
+		// Validation passed - proceed with publish (with version if service available). Either
+		// branch emits `document.published`: the versioned path from publishTx, the non-versioned
+		// path from publishWithoutVersion.
 
 		// Invalidate cache for this document and all collection queries
 		if (this.documentCache) {

@@ -7,13 +7,17 @@ import { createOpenAIAdapter } from '@aphexcms/ai-openai';
 import { schemaTypes } from './src/lib/schemaTypes/index.js';
 // Single plugin entrypoint. Declared once in a client-safe file (the admin imports
 // the same array for component parts); the server ingests its schema/route parts here.
-import { plugins } from './src/lib/plugins.js';
+import { plugins as basePlugins } from './src/lib/plugins.js';
+import { labNotesEvalPlugin } from './src/lib/plugins/lab-notes-eval-plugin.js';
 import { authProvider } from './src/lib/server/auth';
 import { db } from './src/lib/server/db';
 import { email } from './src/lib/server/email';
 import { registerInvitationEmailHook } from './src/lib/server/email/invitation-hook';
 import { storageAdapter } from './src/lib/server/storage';
 import { cacheAdapter } from './src/lib/server/cache';
+import { labNotesEvalEnabled, labNotesEvalOrigin } from './src/lib/lab-notes-eval/config.js';
+import { mintBlogPostPreviewToken } from './src/lib/lab-notes-eval/preview-tokens.js';
+import { labNotesPreviewViewUrl } from './src/lib/lab-notes-eval/public-origin.js';
 
 /**
  * 👀 Preview perspective — the one knob to flip while developing. Change the return:
@@ -37,7 +41,7 @@ function isTruthy(value: string | undefined): boolean {
 
 export default createCMSConfig({
 	schemaTypes,
-	plugins,
+	plugins: [...basePlugins, labNotesEvalPlugin],
 
 	// Provide the shared database and storage adapter instances directly.
 	// These are created once in their respective /lib/server/.. files.
@@ -58,7 +62,10 @@ export default createCMSConfig({
 
 	auth: {
 		provider: authProvider,
-		loginUrl: '/login' // Redirect here when unauthenticated
+		loginUrl: '/login', // Redirect here when unauthenticated
+		...(labNotesEvalEnabled()
+			? { readOnlyPostApiPaths: ['/api/lab-notes/preview-token'] as const }
+			: {})
 	},
 
 	security: {
@@ -128,5 +135,21 @@ export default createCMSConfig({
 	// email after the invite is created). Runs BEFORE built-in routes mount.
 	api: (app) => {
 		registerInvitationEmailHook(app);
-	}
+	},
+
+	publicOrigin: labNotesEvalEnabled() ? labNotesEvalOrigin() : undefined,
+
+	mcpSavedDraftLinks: labNotesEvalEnabled()
+		? async ({ collection, document }) => {
+				if (collection !== 'blog_post') return {};
+				const slug = typeof document.slug === 'string' ? document.slug : null;
+				if (!slug) return {};
+				const docId = typeof document.id === 'string' ? document.id : null;
+				if (!docId) return {};
+				const cap = await mintBlogPostPreviewToken(docId, slug);
+				return {
+					previewUrl: labNotesPreviewViewUrl(slug, cap.token)
+				};
+			}
+		: undefined
 });

@@ -142,7 +142,7 @@ export const assetsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 
 				let updatedAsset: Asset | null;
 
-				if (auth.type === 'session') {
+				if (auth.type === 'session' || auth.type === 'oauth_access') {
 					updatedAsset = await assetService.updateAssetMetadata(auth.organizationId, id, {
 						originalFilename,
 						title,

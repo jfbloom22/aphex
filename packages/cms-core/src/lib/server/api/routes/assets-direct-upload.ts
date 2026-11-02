@@ -242,7 +242,8 @@ export const assetsDirectUploadRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 					description: body.description,
 					alt: body.alt,
 					creditLine: body.creditLine,
-					createdBy: auth.type === 'session' ? auth.user.id : auth.keyId,
+					createdBy:
+						auth.type === 'session' || auth.type === 'oauth_access' ? auth.user.id : auth.keyId,
 					// Resolved here because this route has the schema and the service
 					// does not; stamped so a later field rename can't publish the asset.
 					private: ticket.schemaType

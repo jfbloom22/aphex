@@ -50,6 +50,18 @@ export interface PartialSessionAuth {
 	};
 }
 
+/**
+ * OAuth access token issued for MCP clients (Open WebUI). Same org membership as
+ * the user, but capabilities omit publish — admin browser sessions keep full role caps.
+ */
+export interface OAuthAccessAuth {
+	type: 'oauth_access';
+	user: CMSUser;
+	organizationId: string;
+	organizationRole: OrganizationRole | string;
+	capabilities: string[];
+}
+
 export interface ApiKeyAuth {
 	type: 'api_key';
 	keyId: string;
@@ -72,7 +84,7 @@ export interface ApiKeyAuth {
 	lastUsedAt?: Date;
 }
 
-export type Auth = SessionAuth | PartialSessionAuth | ApiKeyAuth;
+export type Auth = SessionAuth | PartialSessionAuth | OAuthAccessAuth | ApiKeyAuth;
 
 // Access control utilities.
 //

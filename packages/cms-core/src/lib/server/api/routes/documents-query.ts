@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { authToContext } from '../../../local-api/auth-helpers';
 import { PermissionError } from '../../../local-api/permissions';
 import { cmsLogger } from '../../../utils/logger';
 import { queryDocumentsRequest } from '../../../api/schemas/documents';
 import type { FindOptions } from '../../../types/filters';
 import type { AphexEnv } from '../index';
+import { documentRouteContext, DocumentAuthError } from './document-auth';
 
 const DEFAULT_PAGE_SIZE = 20;
 const DEFAULT_PAGE = 1;
@@ -32,7 +32,7 @@ export const documentsQueryRouter: Hono<AphexEnv> = new Hono<AphexEnv>().post(
 	async (c) => {
 		try {
 			const { localAPI } = c.var.aphexCMS;
-			const context = authToContext(c.var.auth);
+			const context = documentRouteContext(c.var.auth);
 			const body = c.req.valid('json');
 			const documentType = body.type;
 
@@ -78,6 +78,9 @@ export const documentsQueryRouter: Hono<AphexEnv> = new Hono<AphexEnv>().post(
 			});
 		} catch (error) {
 			cmsLogger.error('Failed to query documents:', error);
+			if (error instanceof DocumentAuthError) {
+				return c.json({ success: false, error: 'Unauthorized', message: error.message }, 401);
+			}
 			if (error instanceof PermissionError) {
 				return c.json({ success: false, error: 'Forbidden', message: error.message }, 403);
 			}

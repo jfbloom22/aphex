@@ -2,6 +2,7 @@
 	import { readingTime } from '$lib/blog/reading-time';
 	import PostCard from '$lib/blog/PostCard.svelte';
 	import Seo from '$lib/blog/Seo.svelte';
+	import LabNotesArchive from '$lib/lab-notes-eval/LabNotesArchive.svelte';
 	import { usePreview, stegaClean } from '@aphexcms/visual-editing';
 	import { Image } from '@aphexcms/cms-core/image';
 	import type { SiteSettings } from '$lib/generated-types';
@@ -48,79 +49,83 @@
 	}
 </script>
 
-<Seo
-	title="Stories"
-	description={settings?.tagline ?? 'Field notes, essays, and dispatches from the studio.'}
-/>
-
-<section class="masthead masthead--{heroImage.src ? heroLayout : 'text'}">
-	{#if heroImage.src}
-		<div class="masthead__media">
-			<!-- Above the fold on the site's front page: the LCP image, so `priority`. -->
-			<Image
-				value={settings?.heroImage}
-				alt={heroImage.alt || heroTitle}
-				sizes={heroSizes}
-				priority
-			/>
-		</div>
-	{/if}
-	<div class="masthead__text">
-		<p class="eyebrow">{heroEyebrow}</p>
-		<h1>{heroTitle}</h1>
-		<p class="masthead__sub">{heroSubtitle}</p>
-	</div>
-</section>
-
-{#if posts.length === 0}
-	<div class="empty">
-		<p>No published stories yet.</p>
-		<a href="/admin">Open the studio to write one →</a>
-	</div>
+{#if data.labNotesEval}
+	<LabNotesArchive {data} />
 {:else}
-	{#if featured}
-		{@const cover = ve.image(featured.coverImage)}
-		<!-- App-level list item (not a stored reference): make it click-to-edit its
-		     post in the studio preview. No-op outside preview. -->
-		<a
-			class="featured"
-			href="/blog/{featured.slug}"
-			{...ve.edit({ id: featured.id, type: 'blog_post' })}
-		>
-			{#if cover.src}
-				<div class="featured__media">
-					<!-- Second image down and often still in the first viewport, but the
-					     hero already holds `priority`; two eager LCP candidates compete. -->
-					<Image
-						value={featured.coverImage}
-						alt={cover.alt || featured.title}
-						sizes="(max-width: 820px) calc(100vw - 4rem), (max-width: 72rem) calc((100vw - 7.5rem) * 0.476), 491px"
-					/>
-				</div>
-			{/if}
-			<div class="featured__body">
-				<p class="meta">
-					<span class="meta__tag">Featured</span>
-					{#if featured.postDate}<time datetime={featured.postDate}
-							>{formatDate(featured.postDate)}</time
-						>{/if}
-					<span class="meta__dot">·</span>
-					<span>{readingTime(featured.content)}</span>
-				</p>
-				<h2>{featured.title ?? 'Untitled'}</h2>
-				{#if featured.excerpt}<p class="featured__excerpt">{featured.excerpt}</p>{/if}
-				<span class="readlink">Read story</span>
-			</div>
-		</a>
-	{/if}
+	<Seo
+		title="Stories"
+		description={settings?.tagline ?? 'Field notes, essays, and dispatches from the studio.'}
+	/>
 
-	{#if rest.length > 0}
-		<div class="rule"></div>
-		<div class="grid">
-			{#each rest as post}
-				<PostCard {post} tagMap={data.tagMap} />
-			{/each}
+	<section class="masthead masthead--{heroImage.src ? heroLayout : 'text'}">
+		{#if heroImage.src}
+			<div class="masthead__media">
+				<!-- Above the fold on the site's front page: the LCP image, so `priority`. -->
+				<Image
+					value={settings?.heroImage}
+					alt={heroImage.alt || heroTitle}
+					sizes={heroSizes}
+					priority
+				/>
+			</div>
+		{/if}
+		<div class="masthead__text">
+			<p class="eyebrow">{heroEyebrow}</p>
+			<h1>{heroTitle}</h1>
+			<p class="masthead__sub">{heroSubtitle}</p>
 		</div>
+	</section>
+
+	{#if posts.length === 0}
+		<div class="empty">
+			<p>No published stories yet.</p>
+			<a href="/admin">Open the studio to write one →</a>
+		</div>
+	{:else}
+		{#if featured}
+			{@const cover = ve.image(featured.coverImage)}
+			<!-- App-level list item (not a stored reference): make it click-to-edit its
+		     post in the studio preview. No-op outside preview. -->
+			<a
+				class="featured"
+				href="/blog/{featured.slug}"
+				{...ve.edit({ id: featured.id, type: 'blog_post' })}
+			>
+				{#if cover.src}
+					<div class="featured__media">
+						<!-- Second image down and often still in the first viewport, but the
+					     hero already holds `priority`; two eager LCP candidates compete. -->
+						<Image
+							value={featured.coverImage}
+							alt={cover.alt || featured.title}
+							sizes="(max-width: 820px) calc(100vw - 4rem), (max-width: 72rem) calc((100vw - 7.5rem) * 0.476), 491px"
+						/>
+					</div>
+				{/if}
+				<div class="featured__body">
+					<p class="meta">
+						<span class="meta__tag">Featured</span>
+						{#if featured.postDate}<time datetime={featured.postDate}
+								>{formatDate(featured.postDate)}</time
+							>{/if}
+						<span class="meta__dot">·</span>
+						<span>{readingTime(featured.content)}</span>
+					</p>
+					<h2>{featured.title ?? 'Untitled'}</h2>
+					{#if featured.excerpt}<p class="featured__excerpt">{featured.excerpt}</p>{/if}
+					<span class="readlink">Read story</span>
+				</div>
+			</a>
+		{/if}
+
+		{#if rest.length > 0}
+			<div class="rule"></div>
+			<div class="grid">
+				{#each rest as post}
+					<PostCard {post} tagMap={data.tagMap} />
+				{/each}
+			</div>
+		{/if}
 	{/if}
 {/if}
 

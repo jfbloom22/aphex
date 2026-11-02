@@ -12,6 +12,11 @@ export interface AuthProvider {
 
 	// API key auth (programmatic access)
 	validateApiKey(request: Request, db: DatabaseAdapter): Promise<ApiKeyAuth | null>;
+	/** MCP OAuth bearer token (Better Auth `mcp` plugin). Optional — absent when plugin is not registered. */
+	validateMcpOAuthAccessToken?(
+		request: Request,
+		db: DatabaseAdapter
+	): Promise<import('../types/auth').OAuthAccessAuth | null>;
 	requireApiKey(
 		request: Request,
 		db: DatabaseAdapter,

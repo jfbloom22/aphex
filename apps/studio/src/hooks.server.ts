@@ -7,6 +7,7 @@ import { cmsLogger } from '@aphexcms/cms-core';
 import { auth } from '$lib/server/auth';
 import { bootstrapPolicy } from '$lib/server/auth/auth.config';
 import { seedEnabled, seedOnFirstRun } from '$lib/server/seed';
+import { labNotesPreviewHeadersHook } from './hooks.server.lab-notes';
 import cmsConfig from '../aphex.config';
 
 const authHook: Handle = async ({ event, resolve }) => {
@@ -42,4 +43,10 @@ const bootstrapHook: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(authHook, aphexHook, bootstrapHook, seedHook);
+export const handle = sequence(
+	authHook,
+	aphexHook,
+	bootstrapHook,
+	seedHook,
+	labNotesPreviewHeadersHook
+);

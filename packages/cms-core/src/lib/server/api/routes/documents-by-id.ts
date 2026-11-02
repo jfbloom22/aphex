@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { authToContext } from '../../../local-api/auth-helpers';
 import { PermissionError } from '../../../local-api/permissions';
 import {
 	SingletonOperationError,
@@ -10,12 +9,13 @@ import { RevisionConflictError } from '../../../db/interfaces/index';
 import { cmsLogger } from '../../../utils/logger';
 import { updateDocumentRequest } from '../../../api/schemas/documents';
 import type { AphexEnv } from '../index';
+import { documentRouteContext, DocumentAuthError } from './document-auth';
 
 export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 	.get('/:id', async (c) => {
 		try {
 			const { localAPI } = c.var.aphexCMS;
-			const context = authToContext(c.var.auth);
+			const context = documentRouteContext(c.var.auth);
 			const id = c.req.param('id');
 
 			if (!id) {
@@ -51,6 +51,9 @@ export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 			return c.json({ success: true, data: document });
 		} catch (error) {
 			cmsLogger.error('Failed to fetch document:', error);
+			if (error instanceof DocumentAuthError) {
+				return c.json({ success: false, error: 'Unauthorized', message: error.message }, 401);
+			}
 			if (error instanceof PermissionError) {
 				return c.json({ success: false, error: 'Forbidden', message: error.message }, 403);
 			}
@@ -81,7 +84,7 @@ export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 		async (c) => {
 			try {
 				const { localAPI } = c.var.aphexCMS;
-				const context = authToContext(c.var.auth);
+				const context = documentRouteContext(c.var.auth);
 				const id = c.req.param('id');
 
 				if (!id) {
@@ -128,6 +131,9 @@ export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 				});
 			} catch (error) {
 				cmsLogger.error('Failed to update document:', error);
+				if (error instanceof DocumentAuthError) {
+					return c.json({ success: false, error: 'Unauthorized', message: error.message }, 401);
+				}
 				if (error instanceof PermissionError) {
 					return c.json({ success: false, error: 'Forbidden', message: error.message }, 403);
 				}
@@ -174,7 +180,7 @@ export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 	.delete('/:id', async (c) => {
 		try {
 			const { localAPI } = c.var.aphexCMS;
-			const context = authToContext(c.var.auth);
+			const context = documentRouteContext(c.var.auth);
 			const id = c.req.param('id');
 
 			if (!id) {
@@ -206,6 +212,9 @@ export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 			return c.json({ success: true, message: 'Document deleted successfully' });
 		} catch (error) {
 			cmsLogger.error('Failed to delete document:', error);
+			if (error instanceof DocumentAuthError) {
+				return c.json({ success: false, error: 'Unauthorized', message: error.message }, 401);
+			}
 			if (error instanceof PermissionError) {
 				return c.json({ success: false, error: 'Forbidden', message: error.message }, 403);
 			}
@@ -225,7 +234,7 @@ export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 	.get('/:id/back-references', async (c) => {
 		try {
 			const { localAPI } = c.var.aphexCMS;
-			const context = authToContext(c.var.auth);
+			const context = documentRouteContext(c.var.auth);
 			const id = c.req.param('id');
 
 			if (!id) {
@@ -236,6 +245,9 @@ export const documentsByIdRouter: Hono<AphexEnv> = new Hono<AphexEnv>()
 			return c.json({ success: true, data: refs });
 		} catch (error) {
 			cmsLogger.error('Failed to fetch back-references:', error);
+			if (error instanceof DocumentAuthError) {
+				return c.json({ success: false, error: 'Unauthorized', message: error.message }, 401);
+			}
 			if (error instanceof PermissionError) {
 				return c.json({ success: false, error: 'Forbidden', message: error.message }, 403);
 			}

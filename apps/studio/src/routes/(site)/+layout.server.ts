@@ -36,14 +36,16 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 			settings,
 			isAuthed,
 			logoUrl,
-			faviconUrl
+			faviconUrl,
+			labNotesEval: (await import('$lib/lab-notes-eval/config')).labNotesEvalEnabled()
 		};
 	} catch {
 		return {
 			settings: null as SiteSettings | null,
 			isAuthed,
 			logoUrl: null,
-			faviconUrl: null
+			faviconUrl: null,
+			labNotesEval: (await import('$lib/lab-notes-eval/config')).labNotesEvalEnabled()
 		};
 	}
 };

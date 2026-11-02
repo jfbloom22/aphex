@@ -106,6 +106,19 @@ export interface ObjectBlock {
 	muted?: boolean;
 }
 
+export interface RunPromptBlock {
+	_type: 'runPrompt';
+	_key: string;
+	prompt?: string;
+	label?: string;
+}
+
+export interface FluencyLevelPickerBlock {
+	_type: 'fluencyLevelPicker';
+	_key: string;
+	initialLevel?: string;
+}
+
 export interface LinkAnnotation {
 	_type: 'link';
 	_key: string;
@@ -137,6 +150,8 @@ export interface BlogPostContentTypes {
 	button: ButtonBlock;
 	gallery: GalleryBlock;
 	object: ObjectBlock;
+	runPrompt: RunPromptBlock;
+	fluencyLevelPicker: FluencyLevelPickerBlock;
 	image: PortableTextImageBlock;
 	link: LinkAnnotation;
 }
@@ -193,6 +208,7 @@ export interface BlogPost {
 	 * @format ISO date string (YYYY-MM-DD) - displays as YYYY-MM-DD
 	 */
 	postDate?: string;
+	coAuthors?: Reference<Author>[];
 	/**
 	 * A short summary shown on the blog listing page
 	 */
@@ -208,12 +224,28 @@ export interface BlogPost {
 		| ButtonBlock
 		| GalleryBlock
 		| ObjectBlock
+		| RunPromptBlock
+		| FluencyLevelPickerBlock
 		| PortableTextImageBlock
 	>;
 	/**
 	 * Topics this post belongs to
 	 */
 	tags?: Reference<Tag>[];
+	/**
+	 * Written by Ghost import; used for idempotent updates
+	 */
+	importSource?: {
+		sourceSystem?: string;
+		externalId?: string;
+		contentHash?: string;
+		revisionAtImport?: number;
+		importedAt?: string;
+		sourcePublishedAt?: string;
+	};
+	importReview?: {
+		failures?: string[];
+	};
 	/**
 	 * Optional. Control how this appears in Google and on social media. Leave blank to use sensible defaults from the fields above.
 	 */
@@ -511,6 +543,7 @@ export interface BlogPostResolved {
 	 * @format ISO date string (YYYY-MM-DD) - displays as YYYY-MM-DD
 	 */
 	postDate?: string;
+	coAuthors?: Author[];
 	/**
 	 * A short summary shown on the blog listing page
 	 */
@@ -526,12 +559,28 @@ export interface BlogPostResolved {
 		| ButtonBlock
 		| GalleryBlock
 		| ObjectBlock
+		| RunPromptBlock
+		| FluencyLevelPickerBlock
 		| PortableTextImageBlock
 	>;
 	/**
 	 * Topics this post belongs to
 	 */
 	tags?: Tag[];
+	/**
+	 * Written by Ghost import; used for idempotent updates
+	 */
+	importSource?: {
+		sourceSystem?: string;
+		externalId?: string;
+		contentHash?: string;
+		revisionAtImport?: number;
+		importedAt?: string;
+		sourcePublishedAt?: string;
+	};
+	importReview?: {
+		failures?: string[];
+	};
 	/**
 	 * Optional. Control how this appears in Google and on social media. Leave blank to use sensible defaults from the fields above.
 	 */

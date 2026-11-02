@@ -9,6 +9,8 @@
 	import Button from './Button.svelte';
 	import Gallery from './Gallery.svelte';
 	import Video from './Video.svelte';
+	import RunPrompt from './RunPrompt.svelte';
+	import FluencyLevelPicker from './FluencyLevelPicker.svelte';
 	import ContactBlock from './ContactBlock.svelte';
 	import CodeStyle from './CodeStyle.svelte';
 	import LinkMark from './LinkMark.svelte';
@@ -36,6 +38,8 @@
 			button: Button,
 			gallery: Gallery,
 			videoBlock: Video,
+			runPrompt: RunPrompt,
+			fluencyLevelPicker: FluencyLevelPicker,
 			contactForm: ContactBlock
 		},
 		block: {

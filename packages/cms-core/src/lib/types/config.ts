@@ -240,6 +240,8 @@ export interface CMSConfig {
 	auth?: {
 		provider: AuthProvider;
 		loginUrl?: string;
+		/** POST paths that do not require API key `write` scope (exact match). */
+		readOnlyPostApiPaths?: string[];
 	};
 	/**
 	 * Cache adapter for published data queries.
@@ -353,4 +355,19 @@ export interface CMSConfig {
 	 * ```
 	 */
 	api?: (app: Hono<AphexEnv>) => void;
+
+	/** Public origin for agent-facing links in MCP save responses (admin URL). */
+	publicOrigin?: string;
+
+	/** App-specific preview or other links merged into MCP create/update tool results. */
+	mcpSavedDraftLinks?: (
+		input: McpSavedDraftLinksInput
+	) => Promise<Record<string, string>> | Record<string, string>;
+}
+
+export interface McpSavedDraftLinksInput {
+	collection: string;
+	document: Record<string, unknown>;
+	organizationId: string;
+	aphexCMS: import('../hooks').CMSInstances;
 }

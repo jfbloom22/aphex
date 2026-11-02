@@ -545,5 +545,8 @@ export function seedOnFirstRun(locals: App.Locals): Promise<void> {
 
 /** Whether the first-run seed is enabled (kill switch: `APHEX_SEED=false`). */
 export function seedEnabled(): boolean {
+	if (['true', '1', 'yes', 'on'].includes((env.LAB_NOTES_EVAL ?? '').toLowerCase())) {
+		return false;
+	}
 	return env.APHEX_SEED !== 'false';
 }

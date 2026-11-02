@@ -486,6 +486,7 @@ function rawCapabilities(auth: Auth): readonly string[] {
  * custom role names participate just like built-ins do.
  */
 export function effectiveOrganizationRole(auth: Auth): string | null {
+	if (auth.type === 'oauth_access') return auth.organizationRole ?? null;
 	if (auth.type !== 'session') return null;
 	if (INSTANCE_ROLE_OVERRIDES.has(auth.user.role)) return 'owner';
 	return auth.organizationRole ?? null;

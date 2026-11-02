@@ -4,6 +4,7 @@ import type {
 	SessionAuth,
 	PartialSessionAuth,
 	ApiKeyAuth,
+	OAuthAccessAuth,
 	CMSUser,
 	DatabaseAdapter
 } from '@aphexcms/cms-core/server';
@@ -29,6 +30,9 @@ const WRITE_CAPABILITIES = [
 	'asset.upload',
 	'asset.delete'
 ] as const;
+
+/** MCP chat credentials must not publish; admin browser sessions keep full role caps. */
+const MCP_OAUTH_EXCLUDED = new Set<string>(['document.publish', 'document.unpublish']);
 
 type ApiKeyPermission = 'read' | 'write';
 
@@ -99,6 +103,10 @@ export interface AuthService {
 	): Promise<SessionAuth | PartialSessionAuth | null>;
 	requireSession(request: Request, db: DatabaseAdapter): Promise<SessionAuth>;
 	validateApiKey(request: Request, db: DatabaseAdapter): Promise<ApiKeyAuth | null>;
+	validateMcpOAuthAccessToken(
+		request: Request,
+		db: DatabaseAdapter
+	): Promise<OAuthAccessAuth | null>;
 	requireApiKey(
 		request: Request,
 		db: DatabaseAdapter,
@@ -506,6 +514,73 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
 				};
 			} catch (error) {
 				cmsLogger.error('[AuthService]', 'validateApiKey error:', error);
+				return null;
+			}
+		},
+
+		async validateMcpOAuthAccessToken(
+			request: Request,
+			db: DatabaseAdapter
+		): Promise<OAuthAccessAuth | null> {
+			const getMcpSession = (
+				auth.api as {
+					getMcpSession?: (input: {
+						headers: Headers;
+						asResponse: false;
+					}) => Promise<{ userId?: string } | null>;
+				}
+			).getMcpSession;
+			if (!getMcpSession) return null;
+
+			try {
+				const tokenRow = await getMcpSession({ headers: request.headers, asResponse: false });
+				if (!tokenRow?.userId) return null;
+
+				const authUser = await this.getUserById(tokenRow.userId);
+				if (!authUser) return null;
+
+				const userProfile = await db.findUserProfileById(authUser.id);
+				if (!userProfile) return null;
+
+				const cmsUser: CMSUser = {
+					id: authUser.id,
+					email: authUser.email,
+					name: authUser.name,
+					image: authUser.image,
+					role: userProfile.role,
+					preferences: userProfile.preferences
+				};
+
+				const userSession = await db.findUserSession(authUser.id);
+				let organizationId = userSession?.activeOrganizationId;
+				let organizationRole: string | undefined;
+
+				if (organizationId) {
+					const membership = await db.findUserMembership(authUser.id, organizationId);
+					if (!membership) return null;
+					organizationRole = membership.role;
+				} else {
+					const orgs = await db.findUserOrganizations(authUser.id);
+					if (orgs.length === 0) return null;
+					organizationId = orgs[0]!.organization.id;
+					organizationRole = orgs[0]!.member.role;
+					await db.updateUserSession(authUser.id, organizationId);
+				}
+
+				if (!organizationId || !organizationRole) return null;
+
+				const grantable = await resolveGrantableCapabilities(db, organizationId, organizationRole);
+				const capabilities = grantable.filter((cap) => !MCP_OAUTH_EXCLUDED.has(cap));
+
+				return {
+					type: 'oauth_access',
+					user: cmsUser,
+					organizationId,
+					organizationRole,
+					capabilities
+				};
+			} catch (error) {
+				cmsLogger.error('[AuthService]', 'validateMcpOAuthAccessToken error:', error);
 				return null;
 			}
 		},

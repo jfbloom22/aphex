@@ -1,22 +1,48 @@
 import type { PageServerLoad } from './$types';
 import { siteContext } from '$lib/server/site';
 import { loadTagMap } from '$lib/blog/tags';
+import { labNotesEvalEnabled } from '$lib/lab-notes-eval/config';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const { orgId, context } = await siteContext(locals);
 	const localAPI = locals.aphexCMS.localAPI;
+	const tagMap = await loadTagMap(localAPI, context);
 
 	const result = await localAPI.collections.blog_post.find(context, {
-		limit: 50
+		limit: 100,
+		perspective: 'published'
 	});
 
-	// Newest first by post date (fall back to created order).
-	const posts = [...result.docs].sort((a, b) => (b.postDate ?? '').localeCompare(a.postDate ?? ''));
+	let posts = [...result.docs].sort((a, b) => (b.postDate ?? '').localeCompare(a.postDate ?? ''));
 
-	const [, tagMap] = await Promise.all([
-		locals.aphexCMS.assetService.injectAssetUrls(orgId, ...posts),
-		loadTagMap(localAPI, context)
-	]);
+	if (labNotesEvalEnabled()) {
+		posts = posts.filter((post) => {
+			const refs = post.tags ?? [];
+			return refs.some((ref) => {
+				const id = typeof ref === 'string' ? ref : ref._ref;
+				const tag = id ? tagMap[id] : undefined;
+				return tag?.slug === 'lab-notes';
+			});
+		});
+		const topic = url.searchParams.get('topic');
+		if (topic) {
+			posts = posts.filter((post) => {
+				const refs = post.tags ?? [];
+				return refs.some((ref) => {
+					const id = typeof ref === 'string' ? ref : ref._ref;
+					const tag = id ? tagMap[id] : undefined;
+					return tag?.slug === topic;
+				});
+			});
+		}
+	}
 
-	return { posts, tagMap };
+	await locals.aphexCMS.assetService.injectAssetUrls(orgId, ...posts);
+
+	return {
+		posts,
+		tagMap,
+		labNotesEval: labNotesEvalEnabled(),
+		topic: url.searchParams.get('topic')
+	};
 };

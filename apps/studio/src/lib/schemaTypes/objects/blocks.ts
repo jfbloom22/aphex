@@ -190,3 +190,43 @@ export const contactForm: TypeReference = {
 	],
 	preview: { select: { title: 'heading', subtitle: 'blurb' } }
 };
+
+/** Lab Notes RunPrompt — copy-to-clipboard prompt block (SPR-071 eval). */
+export const runPrompt: TypeReference = {
+	type: 'runPrompt',
+	title: 'Run Prompt',
+	fields: [
+		{
+			name: 'prompt',
+			type: 'text',
+			title: 'Prompt'
+		},
+		{
+			name: 'label',
+			type: 'string',
+			title: 'Label',
+			initialValue: 'Try this prompt'
+		}
+	],
+	preview: { select: { title: 'label', subtitle: 'prompt' } }
+};
+
+/** Lab Notes native Svelte fluency level picker (SPR-071 eval). */
+export const fluencyLevelPicker: TypeReference = {
+	type: 'fluencyLevelPicker',
+	title: 'Fluency level picker',
+	fields: [
+		{
+			name: 'initialLevel',
+			type: 'string',
+			title: 'Initial level',
+			initialValue: 'guide',
+			list: [
+				{ title: 'Explorer', value: 'explorer' },
+				{ title: 'Guide', value: 'guide' },
+				{ title: 'Builder', value: 'builder' }
+			]
+		}
+	],
+	preview: { select: { title: 'initialLevel' } }
+};
