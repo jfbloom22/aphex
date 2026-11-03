@@ -163,16 +163,20 @@ ensureDefaultAuthorResolver(cmsConfig, db);
 
 const authorUserLinks = parseAuthorUserLinksEnv(env.APHEX_AUTHOR_USER_LINKS);
 if (authorUserLinks.length) {
-	void db
-		.findAllOrganizations()
-		.then((orgs) => {
-			const orgId = orgs[0]?.id;
-			if (!orgId) return;
-			return applyAuthorUserLinks(cmsConfig, db, orgId, authorUserLinks);
-		})
-		.catch((err) => {
-			console.error('[aphex] APHEX_AUTHOR_USER_LINKS failed:', err);
-		});
+	const runAuthorUserLinks = async (attempt = 0) => {
+		const orgs = await db.findAllOrganizations();
+		const orgId = orgs[0]?.id;
+		if (!orgId) {
+			if (attempt < 12) {
+				setTimeout(() => void runAuthorUserLinks(attempt + 1), 1000);
+			}
+			return;
+		}
+		await applyAuthorUserLinks(cmsConfig, db, orgId, authorUserLinks);
+	};
+	void runAuthorUserLinks().catch((err) => {
+		console.error('[aphex] APHEX_AUTHOR_USER_LINKS failed:', err);
+	});
 }
 
 export default cmsConfig;
